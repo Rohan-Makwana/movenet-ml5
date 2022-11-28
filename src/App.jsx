@@ -27,20 +27,27 @@ function App() {
   // loading movenet lightning pose from tensorflow website
   async function loadMovenet() {
     try {
+      // reference to our canvas element
       const ctx = canvasRef.current.getContext("2d");
+
       const detectorConfig = {
         modelType: poseDetection.movenet.modelType.MULTIPOSE_LIGHTNING,
         enableTracking: true,
         trackerType: poseDetection.TrackerType.BoundingBox,
         multiPoseMaxDimension: 128,
       };
+
       const detector = await poseDetection.createDetector(
         poseDetection.SupportedModels.MoveNet,
         detectorConfig
       );
-      if (detector !== null || detector !== undefined) {
+
+
+      if (detector !== null && detector !== undefined) {
         console.log("Movenet Loaded");
       }
+
+      // calling estimate pose function by passing detector and canvas context to it
       estimatePoses(detector, ctx);
     } catch (error) {
       console.log(error);
