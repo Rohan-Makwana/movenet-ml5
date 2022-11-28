@@ -93,7 +93,9 @@ function App() {
   async function loadMovenet() {
     try {
       // reference to our canvas element
+      // reference to our canvas element
       const ctx = canvasRef.current.getContext("2d");
+
 
       const detectorConfig = {
         modelType: poseDetection.movenet.modelType.MULTIPOSE_LIGHTNING,
@@ -101,6 +103,7 @@ function App() {
         trackerType: poseDetection.TrackerType.BoundingBox,
         multiPoseMaxDimension: 128,
       };
+
 
       const detector = await poseDetection.createDetector(
         poseDetection.SupportedModels.MoveNet,
@@ -110,6 +113,8 @@ function App() {
       if (detector !== null && detector !== undefined) {
         console.log("Movenet Loaded");
       }
+
+      // calling estimate pose function by passing detector and canvas context to it
 
       // calling estimate pose function by passing detector and canvas context to it
       estimatePoses(detector, ctx);
