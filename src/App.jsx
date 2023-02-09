@@ -1,28 +1,93 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 
 // importing dependencies mentioned in the tensorflow documentation
 import * as poseDetection from "@tensorflow-models/pose-detection";
-import * as tf from "@tensorflow/tfjs-core";
 import "@tensorflow/tfjs-backend-webgl";
 
 // importing utilites and other packages
 import Webcam from "react-webcam";
 import "./App.css";
+import LoadingComponent from "./components/LoadingComponent";
+import * as ml5 from "ml5";
 
 function App() {
   const webCamRef = useRef(null);
   const canvasRef = useRef(null);
+  const [result, setResult] = useState([]);
+
+  const [ml5run, setMl5Run] = useState(false);
+  const [modelready, setModelReady] = useState(false);
+  const modelRef = useRef(false);
+  // Object to store neural network
+  let brain;
+  let inputsclass;
 
   //calling movenet function as soon as we have webcam and canvas references
   useEffect(() => {
     loadMovenet();
   }, [webCamRef, canvasRef]);
 
+  useEffect(() => {
+    classifyPose();
+  }, [setModelReady]);
+
   const videoConstraints = {
     width: 1280,
     height: 720,
     facingMode: "user",
   };
+
+  function setupMl5() {
+    // options to feed the neural network
+    const options = {
+      inputs: 34, // 17 poses x,y co ordinates i.e 17*2 = 34
+      outputs: 5, // how many poses we want
+      task: "classification", // we want to classify poses
+      debug: true, // we want to see the debug options
+    };
+
+    // making brain the new neural network
+    brain = ml5.neuralNetwork(options);
+
+    //loading the pretrained model
+    const modelDetails = {
+      model: "https://uyclassmodel.s3.us-west-004.backblazeb2.com/model.json",
+      metadata:
+        "https://uyclassmodel.s3.us-west-004.backblazeb2.com/model_meta.json",
+      weights:
+        "https://uyclassmodel.s3.us-west-004.backblazeb2.com/model.weights.bin",
+    };
+
+    brain.load(modelDetails, classificationModelLoaded);
+    console.log(modelDetails.model);
+  }
+
+  // what to do after classification model is loaded
+  function classificationModelLoaded() {
+    console.log("Classification Model is Ready");
+    setModelReady(true);
+    modelRef.current = true;
+    console.log(modelready);
+    console.log(modelRef.current);
+  }
+
+
+  //function to classify poses
+  function classifyPose(input) {
+    let inputs = input;
+    // console.log(inputs);
+    
+    if (modelRef.current == true) {
+      brain.classify(inputs, gotResults);
+    }
+  }
+
+  // what to do with the classification results
+  function gotResults(error, results) {
+    console.log("Reached here");
+    setResult(results);
+    console.log(results);
+  }
 
   // loading movenet lightning pose from tensorflow website
   async function loadMovenet() {
@@ -42,13 +107,16 @@ function App() {
         detectorConfig
       );
 
-
       if (detector !== null && detector !== undefined) {
         console.log("Movenet Loaded");
       }
 
       // calling estimate pose function by passing detector and canvas context to it
       estimatePoses(detector, ctx);
+      if (!ml5run) {
+        setMl5Run(true);
+        setupMl5();
+      }
     } catch (error) {
       console.log(error);
     }
@@ -60,9 +128,21 @@ function App() {
       const poses = await detector.estimatePoses(webCamRef.current.video);
       let keypoints = poses[0].keypoints;
       // console.log(keypoints);
+
+      let input = [];
       if (keypoints == undefined) {
         loadMovenet();
+      } else {
+        for (let j = 0; j < keypoints.length; j++) {
+          let x = keypoints[j].x;
+          let y = keypoints[j].y;
+          input.push(x);
+          input.push(y);
+        }
       }
+
+      classifyPose(input);
+      console.log(modelready);
       assignPoints(keypoints, ctx);
       drawKeypoints(keypoints, 0.3, ctx);
 
@@ -73,8 +153,10 @@ function App() {
           webCamRef.current.video.videoWidth,
           webCamRef.current.video.videoHeight
         );
+        // setInputs(input);
+        // console.log(inputs);
         estimatePoses(detector, ctx);
-      }, 800);
+      }, 500);
     } catch (error) {
       console.log(error);
     }
@@ -284,6 +366,9 @@ function App() {
     ctx.restore();
   }
 
+  // if (loading) {
+  //   return <LoadingComponent />;
+  // } else {
   return (
     <div className="App">
       <Webcam
@@ -324,5 +409,6 @@ function App() {
     </div>
   );
 }
+// }
 
 export default App;
